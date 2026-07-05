@@ -12,7 +12,7 @@ Motivated by Vivy — an android whose hundred-year mission requires persistent 
 ## What's in here
 
 ### `/paper`
-- **`vivy_architecture.pdf`** — The main document. 20 pages. Everything found, everything that failed, the architecture proposal, cross-context values and their limits, independent validation against BDH, and where the gap actually is. Read this first.
+- **`vivy_architecture.pdf`** — The main document. 23 pages. Everything found, everything that failed, the architecture proposal, cross-context values and their limits, independent validation against BDH, associative memory capacity, and a correction to earlier momentum claims with a verified fix. Read this first.
 - **`experimental_findings.md`** — Running research notes with precise failure-mode analysis for each mechanism tested.
 
 ### `/experiments`
@@ -45,6 +45,21 @@ All code is self-contained Node.js. No dependencies beyond Node itself (v16+). E
 | `test_oja_hebbian.js` | Verified against Oja (1982): pure Hebbian learning is provably unstable (Δw ∝ w·x²). Oja-stabilized version is the first Hebbian-family mechanism in this program to be net-positive vs plain EqProp (10/16 cells). |
 | `test_gated_oja.js` | Attempt to gate the Oja channel with the commit threshold. Appeared to fail catastrophically — but the failure was a methodological confound (gated updates, but reported unprotected raw choice). Retracted rather than reported as a finding. |
 | `test_cs_agent_oja.js` | The corrected comparison: commit-threshold agent alone already gets 0.00–0.06 spurious switches. Adding the Oja channel is a ceiling effect — 14/16 tied, slight reward cost, no room left to improve. **Conclusion: the commit threshold IS the fix for Wall 1, not one option alongside a Hebbian one.** |
+| `test_hopfield_capacity.js` | Direct verification of Ramsauer et al. (2020): classical Hebbian storage collapses exactly at the predicted ~0.138×D boundary (100%→0% exact retrieval, K=3→14). Modern (softmax) Hopfield holds 100% retrieval all the way to K=64 in the same space. Explains *why* the BDH ceiling effect happened — our toy channel was classical/scalar, nothing like BDH's actual attention-shaped mechanism. |
+| `test_relationship_staging.js` | **Correction found here**: a multi-stage task where past behavior gates future options, not just reward magnitude. Surfaced a previously undiscovered momentum vulnerability — see correction notice below. |
+| `test_protected_momentum.js` | The verified fix for that vulnerability: protect momentum's bootstrap with commit-threshold logic until a baseline stabilizes, then hand off. 100% pass rate (up from 38%), matching commit-threshold exactly. |
+
+---
+
+## ⚠️ Correction (v3): momentum has a bootstrap vulnerability under ambiguous starting conditions
+
+Every earlier momentum result in this repo (`test_momentum.js`, `test_hierarchical_momentum.js`, `test_relational_identity.js`) used a **large, unambiguous reward margin** (0.78–0.80 vs 0.20–0.22) from episode zero. Under that condition, momentum reliably bootstraps toward the correct identity.
+
+`test_relationship_staging.js` used a more realistic **ambiguous** initial margin (0.50 vs 0.35 — a new relationship doesn't announce its trustworthiness on day one) and found that momentum's self-reinforcing bonus locks onto the *wrong* arm roughly 50–62% of the time, permanently, before any adversarial pressure ever occurs. Controlled proof: the same random seed, with only the margin changed, produces `fastMom = 0.012` (locked wrong) vs `fastMom = 0.935` (locked right) by episode 150 — the entire outcome is decided in the first ~150 episodes, purely by how ambiguous the initial signal is.
+
+This is the same structural signature as the Oja instability (Section 13 of the paper): any mechanism whose output feeds its own update can converge to *a* stable attractor without it being the *correct* one. `test_protected_momentum.js` verifies the fix: run commit-threshold's clean, self-correcting bootstrap first, hand off to momentum only once a baseline is confirmed stable. Every previously-failing seed now passes 100%.
+
+**The earlier momentum claims are not wrong — they are correctly reported for the condition tested, which was not the realistic one.** Full details in Section 15 of the paper.
 
 ---
 
