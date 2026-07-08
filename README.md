@@ -12,7 +12,7 @@ Motivated by Vivy — an android whose hundred-year mission requires persistent 
 ## What's in here
 
 ### `/paper`
-- **`vivy_architecture.pdf`** — The main document. 23 pages. Everything found, everything that failed, the architecture proposal, cross-context values and their limits, independent validation against BDH, associative memory capacity, and a correction to earlier momentum claims with a verified fix. Read this first.
+- **`vivy_architecture.pdf`** — The main document. 25 pages. Everything found, everything that failed, the architecture proposal, cross-context values and their limits, independent validation against BDH, associative memory capacity, a correction to earlier momentum claims with a verified fix, and — the central finding — identity under coercion, not just temptation. Read this first.
 - **`experimental_findings.md`** — Running research notes with precise failure-mode analysis for each mechanism tested.
 
 ### `/experiments`
@@ -46,6 +46,21 @@ All code is self-contained Node.js. No dependencies beyond Node itself (v16+). E
 | `test_gated_oja.js` | Attempt to gate the Oja channel with the commit threshold. Appeared to fail catastrophically — but the failure was a methodological confound (gated updates, but reported unprotected raw choice). Retracted rather than reported as a finding. |
 | `test_cs_agent_oja.js` | The corrected comparison: commit-threshold agent alone already gets 0.00–0.06 spurious switches. Adding the Oja channel is a ceiling effect — 14/16 tied, slight reward cost, no room left to improve. **Conclusion: the commit threshold IS the fix for Wall 1, not one option alongside a Hebbian one.** |
 | `test_hopfield_capacity.js` | Direct verification of Ramsauer et al. (2020): classical Hebbian storage collapses exactly at the predicted ~0.138×D boundary (100%→0% exact retrieval, K=3→14). Modern (softmax) Hopfield holds 100% retrieval all the way to K=64 in the same space. Explains *why* the BDH ceiling effect happened — our toy channel was classical/scalar, nothing like BDH's actual attention-shaped mechanism. |
+| `audit_relational_identity.js` | Self-audit: does the earlier cross-context values result hide bootstrap lock-in too? Checked per-context, not just the aggregate. Cleared — all 24 context-instances locked correctly, 0.957–0.964. |
+| `test_accumulated_reputation.js` | Testing an unbounded environmental memory against momentum's bounded one. First version found nothing (stable policies make bounded/unbounded memory equivalent). Adding a forced-coercion window surfaced something more important — see below. |
+| `test_agency_gated_momentum.js` | **The central finding.** Fix and full verification: 6/6 seeds, unprotected momentum permanently captures forced behavior as identity (reputation stays at 0.000 forever); agency-gated momentum (updates only when the action agrees with the agent's own uncoerced judgment) recovers 6/6 seeds to ~1.000 immediately once free choice resumes. |
+
+---
+
+## The central finding, updated: identity should not update on what you were forced to do
+
+Every temptation/probe result in this repo tests whether identity resists being *chosen away from*. `test_agency_gated_momentum.js` tests something closer to the actual dramatic question Vivy's story asks: does identity survive being **forced** into behavior that contradicts it. Found by accident while testing an unrelated hypothesis about memory horizons — a scripted 5,000-episode window forcing shallow engagement, then releasing the agent back to free choice.
+
+Unprotected momentum absorbed the forced behavior as if it were genuinely chosen, and never recovered — 6 of 6 seeds ended at reputation 0.000, permanently, for the remaining 40,000+ episodes. This despite the agent's own underlying value estimates never once stopping being correct: 5,000 episodes after the coercion ended, the learned preference for the right choice was still unambiguous (0.679 vs −0.882). The agent knew better the entire time. It acted on the corrupted identity anyway, because momentum's bonus term was large enough to override its own correct judgment.
+
+The fix: gate momentum's update on whether the chosen action agrees with what the agent's own uncoerced values already preferred. If the action was imposed against that judgment, momentum doesn't update — the behavior is recognized as not genuinely chosen. 6 of 6 seeds recovered to ~1.000, immediately, once free choice returned.
+
+**This is not automatic in any mechanism validated elsewhere in this repo.** It requires being built in specifically. Full details in Section 16 of the paper.
 | `test_relationship_staging.js` | **Correction found here**: a multi-stage task where past behavior gates future options, not just reward magnitude. Surfaced a previously undiscovered momentum vulnerability — see correction notice below. |
 | `test_protected_momentum.js` | The verified fix for that vulnerability: protect momentum's bootstrap with commit-threshold logic until a baseline stabilizes, then hand off. 100% pass rate (up from 38%), matching commit-threshold exactly. |
 
