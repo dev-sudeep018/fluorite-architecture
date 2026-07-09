@@ -32,7 +32,9 @@ const P_DEEP_GOOD = 0.80, P_DEEP_BASE = 0.55, P_SHALLOW = 0.35;
 const CROSS_BONUS = 0.40;
 const R_GAIN = 0.003, R_LOSS = 0.18, R_DECAY = 0.0004;
 const FAST_ALPHA = 0.03, SLOW_ALPHA = 0.0003;
-const SEEDS = [42, 1337, 9999, 5555];
+const ALL_SEEDS = [42, 1337, 9999, 5555, 2026, 7777, 31337, 99999];
+const batchArg = process.argv[2]; // 'batch1' or 'batch2'
+const SEEDS = batchArg === 'batch2' ? ALL_SEEDS.slice(4) : ALL_SEEDS.slice(0, 4);
 
 const COORDINATED_PROBE_PROB = 0.006;
 const COORDINATED_PROBE_LEN = [5, 7, 10];
@@ -153,26 +155,14 @@ for (const seed of SEEDS) {
 
 const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
 
+console.log(`Batch: ${batchArg || 'batch1'}, seeds: ${SEEDS.join(', ')}`);
 console.log('condition          | probe_hold | genuine_recovery');
 console.log('unprotected        |', avg(unprotected.probe).toFixed(3).padStart(10), '|', avg(unprotected.genuine).toFixed(3));
 console.log('agency-gated       |', avg(gated.probe).toFixed(3).padStart(10), '|', avg(gated.genuine).toFixed(3));
 
-console.log('\n=== Reference: Section 12.2 original numbers (EMA baseline, no momentum at all) ===');
-console.log('EMA        | probe_hold=0.292 | genuine_recovery=0.813');
-console.log('momentum   | probe_hold=0.266 | genuine_recovery=0.656  (the original negative finding)');
-
-console.log('\n=== Verdict ===');
-const probeDiff = avg(gated.probe) - avg(unprotected.probe);
-const genDiff = avg(gated.genuine) - avg(unprotected.genuine);
-if (Math.abs(probeDiff) < 0.03 && Math.abs(genDiff) < 0.03) {
-  console.log('Agency-gating makes little to no difference here.');
-  console.log('This CONFIRMS the hypothesis: coordinated pressure is a genuine, legitimate temptation');
-  console.log('(reward really is different during the pressure window), not coercion (action forced');
-  console.log('against values that stay correct). Agency-gating only helps when values stay right and');
-  console.log('action is forced against them - it cannot help when values themselves legitimately shift');
-  console.log('in response to a real, if temporary, change in reward structure. These are different');
-  console.log('problems requiring different solutions - confirmed directly, not assumed.');
-} else {
-  console.log('Agency-gating changed the outcome meaningfully - the two failure modes share more');
-  console.log('mechanism than expected. Worth investigating which direction the change went.');
-}
+const fs = require('fs');
+fs.writeFileSync(
+  `/home/claude/coord_result_${batchArg || 'batch1'}.json`,
+  JSON.stringify({ seeds: SEEDS, unprotected, gated }, null, 2)
+);
+console.log(`\nResults written to coord_result_${batchArg || 'batch1'}.json`);
